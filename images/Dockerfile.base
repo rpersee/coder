@@ -3,7 +3,7 @@ FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND="noninteractive"
 
 # Install baseline packages
-RUN apt install -y \
+RUN apt update -qq && apt install -y \
     bash \
     build-essential \
     curl \
@@ -24,7 +24,6 @@ RUN apt install -y \
 RUN useradd coder \
       --create-home \
       --shell=/bin/bash \
-      --groups=docker \
       --uid=1000 \
       --user-group && \
     echo "coder ALL=(ALL) NOPASSWD:ALL" >>/etc/sudoers.d/nopasswd

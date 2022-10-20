@@ -19,6 +19,8 @@ jobs:
   setup:
     name: Setup build
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
 
     steps:
       - name: Clone Repository
@@ -28,9 +30,6 @@ jobs:
         id: set-matrix
         run: |
           echo "matrix=$(find . -name 'Dockerfile.*' -print | jq -cnR '{tag: [inputs | split(".")[-1]]}')" >> $GITHUB_OUTPUT
-
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
 
   build-push:
     name: Build and publish Docker Images
