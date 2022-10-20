@@ -18,7 +18,7 @@ on:
 jobs:
   setup:
     name: Setup build
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
 
@@ -33,7 +33,7 @@ jobs:
 
   build-push:
     name: Build and publish Docker Images
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: setup
     strategy:
       matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
