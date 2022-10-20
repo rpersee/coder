@@ -63,8 +63,7 @@ resource "coder_agent" "main" {
       cp /etc/skel/.bashrc $HOME
     fi
 
-    # install and start code-server
-    curl -fsSL https://code-server.dev/install.sh | sh  | tee code-server-install.log
+    # start code-server
     code-server --auth none --port 13337 | tee code-server-install.log &
   EOT
 }
@@ -113,7 +112,7 @@ resource "kubernetes_pod" "main" {
     }
     container {
       name    = "dev"
-      image   = "rpersee/coder-workspace:base"
+      image   = "rpersee/coder-workspace:vscode"
       command = ["sh", "-c", coder_agent.main.init_script]
       security_context {
         run_as_user = "1000"

@@ -1,0 +1,13 @@
+FROM rpersee/coder-workspace:base
+
+# Run everything as root
+USER root
+
+# Install code-server
+RUN curl -fsSL https://code-server.dev/install.sh | sh
+
+# pre-install versions
+RUN code-server --install-extension eamodio.gitlens
+
+# Set back to coder user
+USER coder
