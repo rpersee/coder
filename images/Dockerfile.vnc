@@ -1,0 +1,102 @@
+FROM rpersee/coder-workspace:vscode
+
+# Run everything as root
+USER root
+
+ARG DEBCONF_NONINTERACTIVE_SEEN=true
+ARG DEBIAN_FRONTEND="noninteractive"
+ARG TURBOVNC_VERSION=3.0.1
+ARG VIRTUALGL_VERSION=3.0.1
+ARG LIBJPEG_VERSION=2.1.4
+
+RUN echo "tzdata tzdata/Areas select Europe" | debconf-set-selections; \
+    echo "tzdata tzdata/Zones/Europe select Paris" | debconf-set-selections
+
+RUN apt-get update -y && \
+    supervisor \
+    xorg \
+    ssh \
+    xfce4 \
+    xfce4-goodies \
+    x11-apps \
+    dbus-x11 \
+    xterm \
+    firefox \
+    fonts-lyx \
+    libxtst6 \
+    libxv1 \
+    libglu1-mesa \
+    libc6-dev \
+    libglu1 \
+    libsm6 \
+    libxv1 \
+    x11-xkb-utils \
+    xauth \
+    xfonts-base \
+    xkb-data
+
+# Install quality of life packages.
+RUN yes | unminimize
+
+# Remove packages which may not behave well in a VNC environment.
+RUN apt-get remove -y \
+    xfce4-battery-plugin \
+    xfce4-power-manager-plugins \
+    xfce4-pulseaudio-plugin \
+    light-locker
+
+RUN locale-gen en_US.UTF-8
+
+ARG HOME=/home/coder
+ARG VNC_ROOT_DIR=/opt/vnc
+
+RUN cd /tmp \
+    && curl -fsSL -O https://netix.dl.sourceforge.net/project/turbovnc/${TURBOVNC_VERSION}/turbovnc_${TURBOVNC_VERSION}_arm64.deb \
+        -O https://netix.dl.sourceforge.net/project/libjpeg-turbo/${LIBJPEG_VERSION}/libjpeg-turbo-official_${LIBJPEG_VERSION}_arm64.deb \
+        -O https://netix.dl.sourceforge.net/project/virtualgl/${VIRTUALGL_VERSION}/virtualgl_${VIRTUALGL_VERSION}_arm64.deb \
+    && dpkg -i *.deb \
+    && rm -f /tmp/*.deb \
+    && sed -i 's/$host:/unix:/g' /opt/TurboVNC/bin/vncserver
+
+RUN ln -s /opt/TurboVNC/bin/* /opt/VirtualGL/bin/* /usr/local/bin/
+# Configure VGL for use in a single user environment.
+# This may trigger a warning about display managers needing to be restarted.
+# This can be ignored as the VNC server manages this lifecycle.
+RUN vglserver_config -config +s +f +t
+
+ENV VNC_SCRIPTS=$VNC_ROOT_DIR/scripts \
+    VNC_SETUP_SCRIPTS=$VNC_ROOT_DIR/setup \
+    VNC_LOG_DIR=$HOME/.vnc/log \
+    VNC_XSTARTUP=$VNC_ROOT_DIR/xstartup \
+    VNC_SUPERVISOR_CONFIG=$VNC_ROOT_DIR/supervisord.conf \
+    VNC_PORT=5990 \
+    VNC_DISPLAY_ID=:90 \
+    VNC_COL_DEPTH=24 \
+    VNC_RESOLUTION=1920x1080 \
+    NO_VNC_HOME=$VNC_ROOT_DIR/noVNC \
+    NO_VNC_PORT=6081 \
+    XFCE_BASE_DIR=$VNC_ROOT_DIR/xfce4 \
+    XFCE_DEST_DIR=$HOME/.config/xfce4
+
+WORKDIR $HOME
+
+ADD --chown=coder:coder ./vnc/xfce4 $XFCE_BASE_DIR
+ADD --chown=coder:coder ./vnc/vnc $VNC_ROOT_DIR
+ADD --chown=coder:coder ./vnc/supervisor /etc/supervisor
+ADD --chown=coder:coder ./vnc/turbovncserver-security.conf /etc
+
+RUN find $VNC_SETUP_SCRIPTS -name '*.sh' -exec chmod a+x {} +
+
+RUN $VNC_SETUP_SCRIPTS/set_user_permission.sh $VNC_ROOT_DIR \
+    && chmod +x $VNC_XSTARTUP
+
+# Add Coder-specific scripts and metadata to the image
+COPY ["./coder", "/coder"]
+RUN chmod +x /coder/configure
+
+# Set back to coder user
+USER coder
+
+RUN $VNC_SETUP_SCRIPTS/no_vnc.sh
+
+EXPOSE $NO_VNC_PORT
