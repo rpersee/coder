@@ -112,6 +112,15 @@ resource "kubernetes_pod" "main" {
       run_as_user = "1000"
       fs_group    = "1000"
     }
+    # Run a privileged dind (Docker in Docker) container
+    container {
+      name  = "docker-sidecar"
+      image = "docker:dind"
+      security_context {
+        privileged = true
+      }
+      command = ["dockerd", "-H", "tcp://127.0.0.1:2375"]
+    }
     container {
       name    = "dev"
       image   = "rpersee/coder-workspace:vscode"
@@ -122,6 +131,11 @@ resource "kubernetes_pod" "main" {
       env {
         name  = "CODER_AGENT_TOKEN"
         value = coder_agent.main.token
+      }
+      # Use the Docker daemon in the "docker-sidecar" container
+      env {
+        name  = "DOCKER_HOST"
+        value = "localhost:2375"
       }
       volume_mount {
         mount_path = "/home/coder"
